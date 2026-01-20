@@ -1,8 +1,12 @@
 # Игнорируемые файлы для git
 venv/
+.venv/
 __pycache__/
 *.pyc
 .env
 .DS_Store
 *.db
 *.sqlite3
+*.sqlite
+Thumbs.db
+*.log
