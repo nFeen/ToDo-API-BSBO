@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Task
+from models import Task, User
 from database import get_async_session
 from typing import List, Dict
 from datetime import datetime
+from dependencies import get_current_user
 
 router = APIRouter(
     prefix="/stats",
@@ -14,9 +15,14 @@ router = APIRouter(
 
 @router.get("/", response_model=dict)
 async def get_tasks_stats(
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
 ) -> dict:
-    result = await db.execute(select(Task))
+    if current_user.role.value == "admin":
+        stmt = select(Task)
+    else:
+        stmt = select(Task).where(Task.user_id == current_user.id)
+    result = await db.execute(stmt)
     tasks = result.scalars().all()
     
     total_tasks = len(tasks)
@@ -42,12 +48,17 @@ async def get_tasks_stats(
 
 @router.get("/deadlines", response_model=List[Dict])
 async def get_pending_deadlines(
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
 ) -> List[Dict]:
     """Статистика по срокам выполнения задач со статусом "pending":
     название, описание, дата начала, оставшийся срок (в днях).
     """
-    result = await db.execute(select(Task).where(Task.completed == False))
+    if current_user.role.value == "admin":
+        stmt = select(Task).where(Task.completed == False)
+    else:
+        stmt = select(Task).where((Task.completed == False) & (Task.user_id == current_user.id))
+    result = await db.execute(stmt)
     tasks = result.scalars().all()
 
     items: List[Dict] = []
